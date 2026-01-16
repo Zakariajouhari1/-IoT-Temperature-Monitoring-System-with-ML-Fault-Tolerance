@@ -183,33 +183,4 @@ ping broker.hivemq.com
 
 ---
 
-## 👥 Authors
 
-**Zakaria Jouhari** · **Nouhaila Souaidi** · **Widad Fahd**
-
-Supervised by: Prof. Abderrahim Bajit
-
-**Institution**: ENSA Kénitra, Morocco
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file
-
----
-
-## 📚 Citation
-
-```bibtex
-@article{jouhari2025iot,
-  title={IoT Temperature Monitoring System with ML-Based Fault Tolerance},
-  author={Jouhari, Zakaria and Souaidi, Nouhaila and Fahd, Widad},
-  institution={ENSA Kénitra},
-  year={2025}
-}
-```
-
----
-
-**⭐ Star this repo if you find it useful!**
