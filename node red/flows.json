@@ -1,0 +1,507 @@
+[
+    {
+        "id": "976298548fcfaaea",
+        "type": "tab",
+        "label": "🌡️ Temperature Monitoring System",
+        "disabled": false,
+        "info": "Système de surveillance IoT avec ML - Jetson + Arduino",
+        "env": []
+    },
+    {
+        "id": "feeb864650804eef",
+        "type": "mqtt in",
+        "z": "976298548fcfaaea",
+        "name": "📡 MQTT Temperature In",
+        "topic": "jetson/temperature",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 220,
+        "wires": [
+            [
+                "c42284e19615cc88",
+                "0e3390ef827bd109"
+            ]
+        ]
+    },
+    {
+        "id": "c42284e19615cc88",
+        "type": "function",
+        "z": "976298548fcfaaea",
+        "name": "📊 Parse Data",
+        "func": "var temp = msg.payload.temperature;\nvar status = msg.payload.status;\n\nmsg.payload = {\n    temperature: temp,\n    status: status,\n    timestamp: msg.payload.timestamp,\n    mode: msg.payload.mode || \"NORMAL\",\n    confidence: msg.payload.confidence || 1.0,\n    model_trained: msg.payload.model_trained || false,\n    samples: msg.payload.samples || 0\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 220,
+        "wires": [
+            [
+                "3e2c2ba644b33da9"
+            ]
+        ]
+    },
+    {
+        "id": "3e2c2ba644b33da9",
+        "type": "function",
+        "z": "976298548fcfaaea",
+        "name": "⭐ Format Dashboard Data ML",
+        "func": "// Données reçues\nlet temp = msg.payload.temperature;\nlet status = msg.payload.status;\nlet timestamp = msg.payload.timestamp;\nlet mode = msg.payload.mode || \"NORMAL\";\nlet confidence = msg.payload.confidence || 1.0;\nlet model_trained = msg.payload.model_trained || false;\nlet samples = msg.payload.samples || 0;\n\n// Calculer les statistiques en temps réel\ncontext.temps = context.temps || [];\ncontext.temps.push(temp);\nif (context.temps.length > 100) context.temps.shift();\n\nlet avg = (context.temps.reduce((a,b)=>a+b,0) / context.temps.length).toFixed(1);\nlet min = Math.min(...context.temps).toFixed(1);\nlet max = Math.max(...context.temps).toFixed(1);\n\n// ---------- GAUGE ----------\nlet msgGauge = {\n    payload: temp\n};\n\n// ---------- TEXT (Température) ----------\nlet msgText = {\n    payload: temp\n};\n\n// ---------- CHART avec distinction Real/ML ----------\nlet msgChart = {\n    payload: temp,\n    topic: mode === \"PREDICTION\" ? \"🔮 ML Prediction\" : \"🌡️ Real Data\"\n};\n\n// ---------- LED avec couleurs selon mode ----------\nlet msgLed = {\n    payload: true\n};\n\nif (mode === \"PREDICTION\") {\n    // Orange pour mode prédiction ML\n    msgLed.color = \"#e67e22\";\n} else if (status === \"COLD\") {\n    msgLed.color = \"#74b9ff\";  // Bleu clair\n} else if (status === \"NORMAL\") {\n    msgLed.color = \"#00b894\";  // Vert\n} else if (status === \"WARM\") {\n    msgLed.color = \"#fdcb6e\";  // Jaune\n} else if (status === \"HOT\") {\n    msgLed.color = \"#d63031\";  // Rouge\n} else {\n    msgLed.color = \"#fdcb6e\";  // Jaune par défaut\n}\n\n// ---------- STATUS LABEL avec icône mode ----------\nlet modeIcon = \"\";\nif (mode === \"PREDICTION\") {\n    modeIcon = \"🔮\";\n} else if (mode === \"FALLBACK\") {\n    modeIcon = \"⚠️\";\n} else {\n    modeIcon = \"✅\";\n}\n\nlet msgStatus = {\n    payload: `${modeIcon} ${status}`\n};\n\n// ---------- STATISTICS ----------\nlet msgStats = {\n    payload: `📊 Avg: ${avg}°C  |  📉 Min: ${min}°C  |  📈 Max: ${max}°C  |  📦 Samples: ${context.temps.length}`\n};\n\n// ---------- TIMESTAMP ----------\nlet msgTime = {\n    payload: `🕒 ${timestamp}`\n};\n\n// ---------- ML INFO ----------\nlet mlStatus = model_trained ? \"✅ Entraîné\" : \"⏳ Apprentissage...\";\nlet msgMLInfo = {\n    payload: `🤖 Modèle ML: Régression Linéaire | ${mlStatus} | ${samples} échantillons`\n};\n\n// ---------- CONFIDENCE GAUGE ----------\nlet msgConfidence = {\n    payload: Math.round(confidence * 100)\n};\n\n// ---------- MODE BADGE ----------\nlet modeBadge = \"\";\nif (mode === \"NORMAL\") {\n    modeBadge = \"✅ Mode Normal\";\n} else if (mode === \"PREDICTION\") {\n    modeBadge = `🔮 Mode Prédiction ML (${(confidence*100).toFixed(0)}% confiance)`;\n} else if (mode === \"FALLBACK\") {\n    modeBadge = \"⚠️ Mode Fallback\";\n}\n\nlet msgModeBadge = {\n    payload: modeBadge\n};\n\n// Retourner 10 sorties\nreturn [\n    msgGauge,        // 1. Gauge température\n    msgText,         // 2. Texte température\n    msgChart,        // 3. Graphique\n    msgLed,          // 4. LED status\n    msgStatus,       // 5. Label status\n    msgStats,        // 6. Statistiques\n    msgTime,         // 7. Timestamp\n    msgMLInfo,       // 8. Info ML\n    msgConfidence,   // 9. Gauge confiance\n    msgModeBadge     // 10. Badge mode\n];",
+        "outputs": 10,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 220,
+        "wires": [
+            [
+                "922cf83451a17b19"
+            ],
+            [
+                "459a8c4c46509938"
+            ],
+            [
+                "c63464c5ea950cba"
+            ],
+            [
+                "6ad98fb5b15d30fc"
+            ],
+            [
+                "78dff7ab249cb248"
+            ],
+            [
+                "f6df22f2cac32717"
+            ],
+            [
+                "9f0b474742d88876"
+            ],
+            [
+                "88e68ce43e894382"
+            ],
+            [
+                "1c03ba0692d3cd6a"
+            ],
+            [
+                "2fac604bf3085067"
+            ]
+        ]
+    },
+    {
+        "id": "0e3390ef827bd109",
+        "type": "debug",
+        "z": "976298548fcfaaea",
+        "name": "🐛 Debug Console",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 420,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "922cf83451a17b19",
+        "type": "ui_gauge",
+        "z": "976298548fcfaaea",
+        "name": "🌡️ Temperature Gauge",
+        "group": "group1",
+        "order": 1,
+        "width": 6,
+        "height": 5,
+        "gtype": "donut",
+        "title": "Current Temperature",
+        "label": "°C",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "25",
+        "colors": [
+            "#74b9ff",
+            "#00b894",
+            "#fdcb6e",
+            "#e17055",
+            "#d63031"
+        ],
+        "seg1": "8",
+        "seg2": "12",
+        "diff": false,
+        "x": 960,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "459a8c4c46509938",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "group1",
+        "order": 2,
+        "width": 6,
+        "height": 2,
+        "name": "📍 Temperature Display",
+        "label": "Temperature Now",
+        "format": "<div style='text-align:center;'><font size='7' color='#0984e3'><b>{{msg.payload}}°C</b></font></div>",
+        "layout": "row-center",
+        "x": 970,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "1c03ba0692d3cd6a",
+        "type": "ui_gauge",
+        "z": "976298548fcfaaea",
+        "name": "🎯 ML Confidence",
+        "group": "group1",
+        "order": 5,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "ML Confidence Level",
+        "label": "%",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 100,
+        "colors": [
+            "#d63031",
+            "#fdcb6e",
+            "#00b894"
+        ],
+        "seg1": 40,
+        "seg2": 70,
+        "diff": false,
+        "x": 950,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "6ad98fb5b15d30fc",
+        "type": "ui_led",
+        "z": "976298548fcfaaea",
+        "order": 3,
+        "group": "group1",
+        "width": 3,
+        "height": 1,
+        "label": "System Status",
+        "labelPlacement": "left",
+        "labelAlignment": "left",
+        "colorForValue": [],
+        "allowColorForValueInMessage": true,
+        "shape": "circle",
+        "showGlow": true,
+        "name": "🔴 Status LED",
+        "x": 960,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "78dff7ab249cb248",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "group1",
+        "order": 4,
+        "width": 3,
+        "height": 1,
+        "name": "📌 Status Label",
+        "label": "",
+        "format": "<div style='text-align:center;'><b>{{msg.payload}}</b></div>",
+        "layout": "row-center",
+        "x": 960,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "2fac604bf3085067",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "group1",
+        "order": 6,
+        "width": 6,
+        "height": 1,
+        "name": "🏷️ Mode Badge",
+        "label": "System Mode",
+        "format": "<b>{{msg.payload}}</b>",
+        "layout": "row-center",
+        "x": 950,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "c63464c5ea950cba",
+        "type": "ui_chart",
+        "z": "976298548fcfaaea",
+        "name": "📈 Temperature Trend",
+        "group": "group2",
+        "order": 1,
+        "width": 12,
+        "height": 6,
+        "label": "Temperature History (Real-time vs ML Predictions)",
+        "chartType": "line",
+        "legend": "true",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "⏳ Waiting for temperature data...",
+        "dot": true,
+        "ymin": "0",
+        "ymax": "25",
+        "removeOlder": "2",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#0984e3",
+            "#e67e22"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "x": 960,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f6df22f2cac32717",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "68a45c23f60e0fc1",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "name": "📊 Statistics",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "x": 950,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "88e68ce43e894382",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "68a45c23f60e0fc1",
+        "order": 2,
+        "width": 12,
+        "height": 1,
+        "name": "🤖 ML System Info",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "x": 960,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "9f0b474742d88876",
+        "type": "ui_text",
+        "z": "976298548fcfaaea",
+        "group": "68a45c23f60e0fc1",
+        "order": 3,
+        "width": 12,
+        "height": 1,
+        "name": "🕒 Last Update",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "x": 960,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "123c2099902bf1ef",
+        "type": "ui_button",
+        "z": "976298548fcfaaea",
+        "name": "🔄 Reset System",
+        "group": "b14acc7efe3f1a5e",
+        "order": 1,
+        "width": 4,
+        "height": 1,
+        "passthru": false,
+        "label": "Reset Arduino",
+        "tooltip": "Send reset command to Arduino",
+        "color": "white",
+        "bgcolor": "#e74c3c",
+        "className": "",
+        "icon": "fa-refresh",
+        "payload": "RESET",
+        "payloadType": "str",
+        "topic": "jetson/command",
+        "topicType": "str",
+        "x": 180,
+        "y": 520,
+        "wires": [
+            [
+                "1cd5bd9ecd831e05"
+            ]
+        ]
+    },
+    {
+        "id": "3a1d953483519533",
+        "type": "ui_button",
+        "z": "976298548fcfaaea",
+        "name": "💡 Toggle LED",
+        "group": "b14acc7efe3f1a5e",
+        "order": 2,
+        "width": 4,
+        "height": 1,
+        "passthru": false,
+        "label": "Toggle LED",
+        "tooltip": "Toggle Arduino LED",
+        "color": "white",
+        "bgcolor": "#3498db",
+        "className": "",
+        "icon": "fa-lightbulb-o",
+        "payload": "TOGGLE",
+        "payloadType": "str",
+        "topic": "jetson/command",
+        "topicType": "str",
+        "x": 180,
+        "y": 580,
+        "wires": [
+            [
+                "1cd5bd9ecd831e05"
+            ]
+        ]
+    },
+    {
+        "id": "7c85667f16ee3155",
+        "type": "ui_button",
+        "z": "976298548fcfaaea",
+        "name": "ℹ️ System Info",
+        "group": "b14acc7efe3f1a5e",
+        "order": 3,
+        "width": 4,
+        "height": 1,
+        "passthru": false,
+        "label": "System Info",
+        "tooltip": "Display system information",
+        "color": "white",
+        "bgcolor": "#16a085",
+        "className": "",
+        "icon": "fa-info-circle",
+        "payload": "INFO",
+        "payloadType": "str",
+        "topic": "jetson/command",
+        "topicType": "str",
+        "x": 180,
+        "y": 640,
+        "wires": [
+            [
+                "1cd5bd9ecd831e05"
+            ]
+        ]
+    },
+    {
+        "id": "1cd5bd9ecd831e05",
+        "type": "mqtt out",
+        "z": "976298548fcfaaea",
+        "name": "📤 MQTT Command Out",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker",
+        "x": 450,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "MQTT Broker",
+        "broker": "http://broker.hivemq.com/",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "group1",
+        "type": "ui_group",
+        "name": "Temperature Monitor",
+        "tab": "tab1",
+        "order": 1,
+        "disp": true,
+        "width": "12"
+    },
+    {
+        "id": "group2",
+        "type": "ui_group",
+        "name": "Temperature History",
+        "tab": "tab1",
+        "order": 2,
+        "disp": true,
+        "width": "12"
+    },
+    {
+        "id": "68a45c23f60e0fc1",
+        "type": "ui_group",
+        "name": "📊 Analytics & Statistics",
+        "tab": "tab1",
+        "order": 3,
+        "disp": true,
+        "width": 12,
+        "collapse": false
+    },
+    {
+        "id": "b14acc7efe3f1a5e",
+        "type": "ui_group",
+        "name": "🎛️ Control Panel",
+        "tab": "tab1",
+        "order": 4,
+        "disp": true,
+        "width": 12,
+        "collapse": false
+    },
+    {
+        "id": "tab1",
+        "type": "ui_tab",
+        "name": "Jetson Temperature Dashboard",
+        "icon": "dashboard",
+        "order": 1
+    },
+    {
+        "id": "5c497610eab36612",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "node-red-contrib-ui-led": "0.4.11"
+        }
+    }
+]
